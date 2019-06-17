@@ -20,9 +20,7 @@ def _search(maze, func):
         for n in maze.filtered_neighbors(t, maze.is_freespace):
             if n not in search_path:
                 q.put((func(step + 1, t), n))
-            print(q.queue)
     print("NO SOLUTION FOUND!!!!")
-    print(search_path)
 
 
 def bfs(maze):
