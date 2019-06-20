@@ -54,6 +54,10 @@ class _MatPlotLibRenderer:
         self._colors.add(color)
         self._ax.add_patch(patches.Circle(a, d/2.0, color=self._convert_color(color)))
 
+    def add_polygon(self, points, color=CUT_THICK):
+        for a, b in adjacent_nlets(points, 2):
+            self.add_line(a, b, color)
+
     def add_text(self, a, v, text, max_w, max_h, color=ENGRAVE_THICK, h_center=False, v_center=False):
         self._colors.add(color)
         text_path = TextPath([0, 0], text, font_properties=FontProperties(fname=Config.font_file))
@@ -78,148 +82,6 @@ class _MatPlotLibRenderer:
                 .translate(a[0], a[1])
         )
         self._ax.add_patch(patches.PathPatch(text_path, facecolor='none', edgecolor=self._convert_color(color)))
-
-    def add_polygon(self, polygon, translation=np.array([0, 0])):
-        def _get_adjusted_points(polygon):
-            points_2d = [polygon.flatten_point(p)[0:2] for p in polygon.points]
-            offsets = [find_joint_offset(Config.mat_thickness, e.get_edge_angle)
-                       if not e.is_open else 0.0
-                       for e in polygon.edges]
-            return offset_polygon_2d(points_2d, offsets)
-        adjusted_points = _get_adjusted_points(polygon)
-
-        def render_cutout():
-            cutout = [p + translation for p in
-                      offset_polygon_2d(adjusted_points,
-                                        len(adjusted_points)*[Config.joint_depth + Config.min_thickness])]
-            if np.dot(adjusted_points[1] - adjusted_points[0], cutout[1] - cutout[0]) < 0:
-                print('polygon too small for cutout!')
-                return
-            for line in adjacent_nlets(cutout, 2):
-                self.add_line(line[0], line[1])
-
-        def render_holes():
-            cutout = [p + translation for p in
-                      offset_polygon_2d(adjusted_points,
-                                        len(adjusted_points)*[(Config.joint_depth + Config.min_thickness)/2.0])]
-            for point in cutout:
-                self.add_circle(point, Config.nail_hole_diameter)
-                self.add_circle(point, Config.nail_hole_diameter + .4, color=CUT_THIN)
-
-        render_cutout()
-        render_holes()
-
-        for i, edge in enumerate(polygon.edges):
-            # convert to 2D coordinate space
-            a_orig = polygon.flatten_point(edge.point_a)[0:2] + translation
-            b_orig = polygon.flatten_point(edge.point_b)[0:2] + translation
-            # we need to offset edges at convex joints to account for material thickness
-            a = adjusted_points[i] + translation
-            b = adjusted_points[(i + 1) % len(adjusted_points)] + translation
-            mid = midpoint(a, b)
-            width = distance(a, b)
-
-            cs = CoordinateSystem2D(normalized(b - a), normal(b, a))
-            mirrored = lambda p: cs.mirror_x(p, mid)
-
-            def render_joint(joint_point):
-                # reduce angles from 0 - 360 to 0 - 180 for simplicity
-                joint_angle = edge.get_edge_angle if not edge.is_concave else 2 * np.pi - edge.get_edge_angle
-                joint_width = Config.mat_thickness + 2*Config.t
-                joint_depth = Config.joint_depth + 2*Config.t
-
-                rot_cs = cs.rotated_copy(np.pi / 2.0 - joint_angle)
-                long_edge = joint_depth + joint_width / np.tan(joint_angle / 2.0)
-
-                p1 = joint_point
-                p2 = p1 + cs.down(long_edge)
-                self.add_line(p1, p2)
-
-                p3 = p2 + rot_cs.right(long_edge)
-                self.add_line(p2, p3)
-                p4 = p3 + rot_cs.up(joint_width)
-                self.add_line(p3, p4)
-                p5 = p4 + rot_cs.left(joint_depth)
-                self.add_line(p4, p5)
-
-                p6 = p5 + cs.up(joint_depth)
-                self.add_line(p5, p6)
-                self.add_text(p5, p2 - p5, str(edge.index), distance(p2, p5) - Config.text_offset, joint_width,
-                              v_center=True)
-                p7 = p6 + cs.left(joint_width)
-                self.add_line(p6, p7, tab=Config.attachment_tab)
-                return p6
-
-            def get_joint_bias():
-                def bias(theta):
-                    # place joint nearer to obtuse angles, further from acute ones
-                    return 1 - min(theta / np.pi, 1)
-                mate = edge.get_edge_mate
-                # invert the ratios for the angles on the right relative to this edge
-                bias_from_left = np.average([bias(edge.angle_a), 1 - bias(edge.angle_b),
-                                             1 - bias(mate.angle_a), bias(mate.angle_b)])
-                return bias_from_left
-
-            def render_edge():
-                notch_width = Config.mat_thickness - 2*Config.t
-                # joint center needs to be positioned respective to the original side otherwise
-                # mating joins will not line up properly depending on their respective offsets
-                # pick the joint point biased towards the centers of the offset polygon edges
-                biased_point = a_orig + cs.right(distance(a_orig, b_orig) * get_joint_bias())
-                joint_center = nearest_point_on_line(a, b, biased_point)
-                if distance(a, joint_center) + notch_width / 2.0 > distance(a, b):
-                    print('Joint is falling off the end of the edge.')
-                p1 = a
-                p2 = joint_center + cs.left(notch_width / 2.0)
-                self.add_line(p1, p2, tab=Config.attachment_tab)
-                p3 = p2 + cs.up(Config.joint_depth)
-                self.add_line(p2, p3)
-                p4 = p3 + cs.right(notch_width)
-                self.add_line(p3, p4)
-                p5 = p4 + cs.down(Config.joint_depth)
-                self.add_line(p4, p5)
-
-                p6 = render_joint(p5) if edge.is_male else p5
-                p7 = b
-                self.add_line(p6, p7)
-
-            def render_text():
-                text_point = mid + cs.right(Config.mat_thickness / 2.0 + Config.text_offset) + \
-                             cs.up(Config.text_offset)
-                self.add_text(text_point, b - a,
-                              str(edge.index) + ('c' if edge.is_concave else ''),
-                              distance(b, text_point) - Config.text_offset, Config.text_height - 2*Config.text_offset)
-
-            def render_panel_edge():
-                self.add_line(a_orig, b_orig, color=CUT_THIN, tab=2*Config.attachment_tab)
-
-            def render_panel_guide():
-                self.add_line(a + cs.left(1), a + cs.right(1), color=ENGRAVE_THIN)
-                self.add_line(b + cs.left(1), b + cs.right(1), color=ENGRAVE_THIN)
-
-            def render_panel_text():
-                text_point = midpoint(a_orig, b_orig) + cs.up(Config.text_offset)
-                self.add_text(text_point, b_orig - a_orig,
-                              str(edge.index),
-                              distance(b, text_point) - Config.text_offset, Config.text_height, ENGRAVE_THIN,
-                              h_center=True)
-
-            if self._render_panels:
-                # render panel edge whether or not the edge is open
-                render_panel_edge()
-                render_panel_guide()
-            if edge.is_open:
-                # Don't add anything to an open edge
-                self.add_line(a, b)
-            else:
-                render_edge()
-                render_text()
-                if self._render_panels:
-                    render_panel_text()
-
-                if width < Config.min_edge_width:
-                    print('side with length {0} is shorter than minimum length {1}'.format(
-                        width, Config.min_edge_width))
 
 
 class DXFRenderer(_MatPlotLibRenderer):

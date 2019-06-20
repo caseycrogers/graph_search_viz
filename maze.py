@@ -39,8 +39,11 @@ class Maze:
 
     def filtered_neighbors(self, t, cond):
         x, y = t[0], t[1]
-        neighbors = [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+        neighbors = [(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)]
         return list(filter(lambda t: self.is_legal(t) and cond(t), neighbors))
+
+    def free_neighbors(self, t):
+        return self.filtered_neighbors(t, self.is_freespace)
 
     def __str__(self):
         string = ''

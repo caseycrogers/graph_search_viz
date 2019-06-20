@@ -7,6 +7,7 @@ from render_path import render_path
 supported_algorithms = {
     'BFS': bfs,
     'DFS': dfs,
+    'GREEDY': greedy,
     'ASTAR': a_star,
 }
 
@@ -16,7 +17,7 @@ def main(maze_file_str, algorithm, debug):
     maze = Maze.from_file(maze_file)
 
     render_maze(maze)
-    render_path(algorithm(maze))
+    render_path(*algorithm(maze))
 
 
 if __name__ == "__main__":

@@ -1,40 +1,79 @@
 import queue
 from geometery_utils import distance
 import numpy as np
-from maze import *
+from abc import ABC, abstractmethod
 
 
-def _search(maze, func):
+class _SearchNode(ABC):
+    def __init__(self, cost_so_far, came_from, tile):
+        self.cost = cost_so_far
+        self.came_from = came_from
+        self.tile = tile
+        super().__init__()
+
+    @abstractmethod
+    def priority_score(self):
+        pass
+
+    def __lt__(self, other):
+        return self.priority_score() < other.priority_score()
+
+
+def _search(maze, node_class):
     q = queue.PriorityQueue()
-    q.put((func(0, maze.start), maze.start))
-    search_path = []
-    t_to_step = dict()
+    q.put(node_class(0, None, maze.start))
+    visited = []
     while not q.empty():
-        p, t = q.get()
-        step = len(search_path)
-        search_path.append(t)
-        t_to_step[t] = step
-        if maze.is_finish(t):
-            return search_path
-
-        for n in maze.filtered_neighbors(t, maze.is_freespace):
-            if n not in search_path:
-                q.put((func(step + 1, t), n))
+        node = q.get()
+        if node.tile in visited:
+            continue
+        visited.append(node.tile)
+        if maze.is_finish(node.tile):
+            return visited, _create_shortest_path(node)
+        for t in maze.free_neighbors(node.tile):
+            q.put(node_class(node.cost + 1, node, t))
     print("NO SOLUTION FOUND!!!!")
 
 
+def _create_shortest_path(last_node):
+    p = []
+    while last_node is not None:
+        p.append(last_node.tile)
+        last_node = last_node.came_from
+    return p[::-1]
+
+
 def bfs(maze):
-    return _search(maze, lambda s, t: s)
+    class BFSNode(_SearchNode):
+        def priority_score(self):
+            return self.cost
+    return _search(maze, BFSNode)
 
 
 def dfs(maze):
-    return _search(maze, lambda s, t: -s)
+    class DFSNode(_SearchNode):
+        a = 0
+
+        def priority_score(self):
+            self.a += 1
+            return self.a
+    return _search(maze, DFSNode)
+
+
+def greedy(maze):
+    class GreedyNode(_SearchNode):
+        def priority_score(self):
+            return _dist_to_finish(maze, self.tile)
+    return _search(maze, GreedyNode)
 
 
 def a_star(maze):
-    return _search(maze, lambda s, t: -s - _dist_to_finish(maze, t))
+    class AStarNode(_SearchNode):
+        def priority_score(self):
+            return self.cost + _dist_to_finish(maze, self.tile)
+    return _search(maze, AStarNode)
 
 
 def _dist_to_finish(maze, t):
-    return distance(np.array(to_coordinate(t)), np.array(to_coordinate(maze.finish)))
+    return distance(np.array(t), np.array(maze.finish))
 
