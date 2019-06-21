@@ -4,7 +4,7 @@ from maze import *
 import os
 
 
-def render_path(search_path, shortest_path):
+def render_path(output, search_path, shortest_path, debug):
     path = None
     for i, t in enumerate(search_path):
         if t in shortest_path:
@@ -19,12 +19,15 @@ def render_path(search_path, shortest_path):
     path -= _render_start(shortest_path[0])
     path -= _render_finish(shortest_path[-1])
     scad_render_to_file(path, 'tmp.scad')
-    os.system('/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD tmp.scad --autocenter --viewall')
+    render_cmd = '/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD tmp.scad --autocenter --viewall'
+    if not debug:
+        render_cmd += ' -o ' + output + '.stl'
+    os.system(render_cmd)
 
 
 def _render_tile(t, step, p_num):
     d = Config.square_size
-    x, y = to_coordinate(t)[0] - d / 2, to_coordinate(t)[1] - d / 2
+    x, y = to_coordinate_center(t)[0] - d / 2, to_coordinate_center(t)[1] - d / 2
     column = scale([d, d, step*Config.step_height])(
         cube(1)
     )
@@ -40,7 +43,7 @@ def _render_tile(t, step, p_num):
 def _render_start(start_tile):
     return linear_extrude(height=Config.mat_thickness + Config.t)(
         offset(delta=Config.t)(
-            polygon(generate_start(to_coordinate(start_tile)))
+            polygon(generate_start(to_coordinate_center(start_tile)))
         )
     )
 
@@ -48,6 +51,6 @@ def _render_start(start_tile):
 def _render_finish(finish_tile):
     return linear_extrude(height=Config.mat_thickness + Config.t)(
         offset(delta=Config.t)(
-            polygon(generate_finish(to_coordinate(finish_tile)))
+            polygon(generate_finish(to_coordinate_center(finish_tile)))
         )
     )

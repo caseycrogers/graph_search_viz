@@ -20,6 +20,7 @@ class Maze:
                     self.start = x, y
                 elif tile == _FINISH:
                     self.finish = x, y
+        self.width, self.height = len(self.array_2d[0]), len(self.array_2d)
 
     def is_wall(self, t):
         x, y = t[0], t[1]
@@ -52,7 +53,19 @@ class Maze:
         return string
 
 
-def to_coordinate(t):
+def _to_coordinate(t, x_offset, y_offset):
     x, y = t[0], t[1]
-    return Config.square_size * x + Config.square_size / 2, \
-        Config.bed_height - (Config.square_size * y + Config.square_size / 2)
+    return Config.square_size * x + x_offset, \
+           Config.bed_height - Config.square_size * y + y_offset
+
+
+def to_coordinate_center(t):
+    return _to_coordinate(t, Config.square_size / 2, Config.square_size / 2)
+
+
+def to_coordinate_ll(t):
+    return _to_coordinate(t, 0, 0)
+
+
+def to_coordinate_ur(t):
+    return _to_coordinate(t, 0, Config.square_size)

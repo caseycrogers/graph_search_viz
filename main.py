@@ -1,4 +1,5 @@
 import argparse
+import re
 from maze import Maze
 from render_maze import render_maze
 from search_algorithms import *
@@ -12,12 +13,15 @@ supported_algorithms = {
 }
 
 
-def main(maze_file_str, algorithm, debug):
+def main(maze_file_str, algorithm_name, debug):
+    m = re.search('([a-zA-Z\d]+)\.[a-zA-Z\d]+', maze_file_str)
+    output = 'output/' + m.group() + algorithm_name
     maze_file = open(maze_file_str, "r")
     maze = Maze.from_file(maze_file)
+    print(maze)
 
-    render_maze(maze)
-    render_path(*algorithm(maze))
+    render_maze(output, maze, debug)
+    render_path(output, *supported_algorithms[algorithm_name](maze), debug)
 
 
 if __name__ == "__main__":
@@ -27,5 +31,5 @@ if __name__ == "__main__":
     parser.add_argument('--debug', action='store_true', help='Only render in matplotlib.')
     args = parser.parse_args()
     main(args.maze_file,
-         supported_algorithms[args.algorithm],
+         args.algorithm,
          args.debug)
