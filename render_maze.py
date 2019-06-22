@@ -1,9 +1,9 @@
 from maze import *
 from renderer import *
 from render_generic import *
-from geometery_utils import distance
+from geometery_utils import distance, offset_polygon_2d
 from collections import defaultdict
-from solid.utils import offset_points
+from itertools import cycle
 import numpy as np
 
 
@@ -21,7 +21,7 @@ def _render_base(output, maze, debug):
     for nail in _find_nail_points(maze):
         _render_nail_hole(r, nail)
 
-    r.finish(output + '_base.txt')
+    r.finish('{0}_base'.format(output))
 
 
 def _render_walls(output, maze, debug):
@@ -42,7 +42,7 @@ def _render_walls(output, maze, debug):
         _render_nail_hole(r, nail)
     r.add_polygon(_find_border_points(maze))
 
-    r.finish(output + '_walls.txt')
+    r.finish('{0}_walls'.format(output))
 
 
 def _find_nail_points(maze):
@@ -123,37 +123,36 @@ def _edge_groups_to_polygons(edge_groups):
                 poly += to_add
             if not to_add:
                 if poly:
-                    poly_group.append(
-                        offset_points(_collapsed_poly(poly), Config.square_size/4,inside=poly_group)
-                    )
+                    poly_group.append(poly if poly_group else poly[::-1])
                     remaining -= len(poly)
                 if remaining == 0:
                     break
-                curr = min(set(point_to_edges.keys()) - set(poly))
+                curr = min(set(point_to_edges.keys()) - set([p for poly in poly_group for p in poly]))
                 poly = [curr, max([p for e in point_to_edges[curr] for p in e])]
-        polys.extend(poly_group)
+        polys.extend(
+            [offset_polygon_2d(np.array(_collapsed_poly(p)), Config.square_size / 5) for p in poly_group]
+        )
     return polys
 
 
 def _collapsed_poly(poly):
-    collapsed = []
-    while True:
-        i = 0
-        while i <= len(poly) - 3:
-            a, b, c = poly[i:i + 3]
-            if _vert_or_horiz(a, b, c):
-                i += 2
-            else:
-                i += 1
-            collapsed.append(a)
-        collapsed.extend(poly[-2:])
-        if _vert_or_horiz(collapsed[-1], collapsed[0], collapsed[1]):
-            collapsed = collapsed[1:]
-        if _vert_or_horiz(collapsed[-2], collapsed[-1], collapsed[0]):
-            collapsed = collapsed[:-1]
-        if len(collapsed) == len(poly):
-            return collapsed
-        poly, collapsed = collapsed, []
+    def _collapse(_poly):
+        collapsed = []
+        while True:
+            i = 0
+            while i <= len(_poly) - 3:
+                a, b, c = _poly[i:i + 3]
+                if _vert_or_horiz(a, b, c):
+                    i += 2
+                else:
+                    i += 1
+                collapsed.append(a)
+            collapsed.extend(_poly[-2:])
+            if len(collapsed) == len(_poly):
+                return collapsed
+            _poly, collapsed = collapsed, []
+    c = _collapse(poly)
+    return _collapse(c[len(c)//2:] + c[:len(c)//2])
 
 
 def _vert_or_horiz(a, b, c):

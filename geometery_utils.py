@@ -112,7 +112,11 @@ def find_joint_offset(t, theta):
 
 
 def offset_polygon_2d(points, offsets):
-    adjusted = [np.copy(p) for p in points]
+    return uneven_offset_polygon_2d(points, [offsets]*len(points))
+
+
+def uneven_offset_polygon_2d(points, offsets):
+    adjusted = [np.array([float(v) for v in p]) for p in points]
     for a_i, a, b_i, b, c_i, c, d_i, d in map(chain.from_iterable, adjacent_nlets(list(enumerate(points)), 4)):
         cba = angle_between_three_points_2d(c, b, a)
         adjusted[b_i] += offsets[b_i] * normalized(a - b) / np.sin(cba)

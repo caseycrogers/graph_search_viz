@@ -1,4 +1,5 @@
 import argparse
+import os
 import re
 from maze import Maze
 from render_maze import render_maze
@@ -15,7 +16,10 @@ supported_algorithms = {
 
 def main(maze_file_str, algorithm_name, debug):
     m = re.search('([a-zA-Z\d]+)\.[a-zA-Z\d]+', maze_file_str)
-    output = 'output/' + m.group() + algorithm_name
+    output_dir = 'output/{0}'.format(m.groups()[0])
+    output = '{0}/{1}_{2}'.format(output_dir, m.groups()[0], algorithm_name)
+    if not debug:
+        os.mkdir(output_dir)
     maze_file = open(maze_file_str, "r")
     maze = Maze.from_file(maze_file)
     print(maze)

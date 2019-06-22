@@ -32,7 +32,7 @@ def _render_tile(t, step, p_num):
         cube(1)
     )
     if p_num is not None:
-        column -= translate([d/4, d/4, step*Config.step_height - 2])(
+        column -= translate([d/4, d/4, step*Config.step_height - 1])(
             scale([d/2, d/2, 2])(
                 cube(1)
             )
