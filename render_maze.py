@@ -146,6 +146,7 @@ def _collapsed_poly(poly):
                 else:
                     i += 1
                 collapsed.append(a)
+            collapsed.extend(_poly[-2:])
             if len(collapsed) == len(_poly):
                 return collapsed
             _poly, collapsed = collapsed, []
