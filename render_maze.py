@@ -3,7 +3,6 @@ from renderer import *
 from render_generic import *
 from geometery_utils import distance, offset_polygon_2d
 from collections import defaultdict
-from itertools import cycle
 import numpy as np
 
 
@@ -147,7 +146,6 @@ def _collapsed_poly(poly):
                 else:
                     i += 1
                 collapsed.append(a)
-            collapsed.extend(_poly[-2:])
             if len(collapsed) == len(_poly):
                 return collapsed
             _poly, collapsed = collapsed, []
